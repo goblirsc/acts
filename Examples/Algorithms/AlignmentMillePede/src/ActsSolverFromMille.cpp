@@ -82,7 +82,7 @@ ProcessCode ActsSolverFromMille::finalize() {
   unsigned int iSurface = 0;
   for (auto& [geoID, surface] : sortedGeo) {
     // only consider sensitive surfaces
-    if (geoID.sensitive() == 0) {
+    if (!surface->isSensitive()) {
       continue;
     }
     // use the first sensitive surface as trajectory reference in the kalman
@@ -139,7 +139,6 @@ ProcessCode ActsSolverFromMille::finalize() {
                 << " +/- " << std::setw(10)
                 << std::sqrt(alignResult.alignmentCovariance(row, row))
                 << std::endl;
-      ;
     }
   }
 

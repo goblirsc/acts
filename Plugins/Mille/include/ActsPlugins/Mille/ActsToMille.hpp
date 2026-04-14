@@ -28,7 +28,7 @@ using Mille::MilleRecord;
 /// @param record: Mille record to write to - should be valid pointer
 /// Note: Not very efficient - we have to "un-fit" the kalman track.
 /// Used for R&D, recommending the GBL track model (under development)
-//  for production use.
+/// for production use.
 void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
                  MilleRecord* record);
 

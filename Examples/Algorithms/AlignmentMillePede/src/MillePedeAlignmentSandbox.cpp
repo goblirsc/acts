@@ -92,7 +92,7 @@ ProcessCode MillePedeAlignmentSandbox::execute(
   unsigned int iSurface = 0;
   for (auto& [geoID, surface] : sortedGeo) {
     // only consider sensitive surfaces
-    if (geoID.sensitive() == 0) {
+    if (!surface->isSensitive()) {
       continue;
     }
     // use the first sensitive surface as trajectory reference in the kalman
@@ -169,6 +169,7 @@ ProcessCode MillePedeAlignmentSandbox::execute(
 
   return ProcessCode::SUCCESS;
 }
+
 ProcessCode MillePedeAlignmentSandbox::finalize() {
   m_milleOut.reset();  // ensure that we do the final write of our output
                        // before subsequent algos finalise.
