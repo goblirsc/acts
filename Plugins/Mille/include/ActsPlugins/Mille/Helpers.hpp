@@ -14,20 +14,26 @@ namespace ActsPlugins::ActsToMille {
 /// @brief: Regularise a covariance matrix for decomposition into Mille.
 ///         Required especially when running fits with non-timing detectors.
 /// @param inputCov: Input covariance matrix, to be regularised
-/// @param conditionCutOff: Lowest value (relative to leading EV) to
-//                          clamp small / negative eigenvalues to
-/// @param removeLargeLeading: If true, will also regularise a single huge
-///                            leading eigenvalue, symptomatic of time-fits
-///                            on non-timing-detectors
+/// @param conditionCutOff: Lowest value (relative to leading EV after clamping)
+///                         to clamp the eigenvalues to.
+/// @param removeHugeLeading: If set to a positive value, the leading eigenvalue
+///                           will be regularised to the value of the
+///                           second-leading if the former exceeds the latter by
+///                           more than this factor. Use to suppress poorly
+///                           constrained directions (e.g. time coordinate).
+/// @param stabilisationDiag: If set to a positive value, the main diagonal elements
+///                           of the input matrix will be incremented by this
+///                           value to regularise the problem.
 /// @param return A new matrix, which has been regularised by clamping
-///               eigenvalues to the iterval [conditionCutOff x max_EV, max_EV],
-///               where max_EV is either the leading eigenvalue or, if
-///               removeLargeLeading is set, either the first or the second
-///               leading EV (second if largest is more than 100 times the
-///               second)
+///               eigenvalues to the iterval [conditionCutOff.first x max_EV,
+///               max_EV], where max_EV is either the leading eigenvalue or, if
+///               removeHugeLeading is positive, either the first or the second
+///               leading EV (second if largest is more than removeHugeLeading
+///               times the second)
 Acts::DynamicMatrix regulariseCovariance(const Acts::DynamicMatrix& inputCov,
                                          double conditionCutOff = 1e-10,
-                                         bool removeLargeLeading = true);
+                                         double removeHugeLeading = 100.,
+                                         double stabilisationDiag = 1.e-10);
 
 /// Calculates the solution X to the matrix equation C = (A + X)^-1,
 /// for a poorly conditioned C and known A. Required to decompose the ACTS

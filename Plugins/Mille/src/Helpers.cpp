@@ -17,14 +17,20 @@ namespace ActsPlugins::ActsToMille {
 
 Acts::DynamicMatrix regulariseCovariance(const Acts::DynamicMatrix& inputCov,
                                          double conditionCutOff,
-                                         bool removeLargeLeading) {
+                                         double removeHugeLeading,
+                                         double stabilisationDiag) {
   Acts::DynamicMatrix out =
       Acts::DynamicMatrix::Zero(inputCov.rows(), inputCov.cols());
 
-  /// add a tiny diagonal matrix for additional stabilisation
+  /// optionally add a tiny diagonal matrix for additional stabilisation
+  Acts::DynamicMatrix regularisation =
+      Acts::DynamicMatrix::Zero(inputCov.rows(), inputCov.cols());
+  if (stabilisationDiag > 0) {
+    regularisation = stabilisationDiag * Acts::DynamicMatrix::Identity(
+                                             inputCov.rows(), inputCov.cols());
+  }
   auto eigensolver = Eigen::SelfAdjointEigenSolver<Acts::DynamicMatrix>(
-      inputCov +
-      1.e-10 * Acts::DynamicMatrix::Identity(inputCov.rows(), inputCov.cols()));
+      inputCov + regularisation);
 
   if (eigensolver.info() != Eigen::Success) {
     std::cout << " FAILED to find eigenvec" << std::endl;
@@ -37,11 +43,15 @@ Acts::DynamicMatrix regulariseCovariance(const Acts::DynamicMatrix& inputCov,
   double lambdaMax = eigenVals(eigenVals.size() - 1);
   // check for a huge leading eigenvalue - this happens when the time coordinate
   // is unconstrained
-  if (removeLargeLeading && lambdaMax > 100 * eigenVals(maxIndex - 1)) {
+  if (removeHugeLeading > 0 &&
+      lambdaMax > removeHugeLeading * eigenVals(maxIndex - 1)) {
     --maxIndex;
     lambdaMax = eigenVals(maxIndex);
   }
-  double lambdaMin = conditionCutOff * lambdaMax;
+  double lambdaMin = eigenVals(0);
+  if (conditionCutOff > 0) {
+    lambdaMin = conditionCutOff * lambdaMax;
+  }
   // clamp the EV to the permitted interval
   for (Eigen::Index i = 0; i < eigenVals.size(); ++i) {
     out(i, i) = std::clamp(eigenVals(i), lambdaMin, lambdaMax);
