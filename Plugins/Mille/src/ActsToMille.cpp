@@ -43,13 +43,7 @@ unsigned long globalIndexSurfToParam(unsigned long surfaceIndex,
 }  // namespace
 
 void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
-                 MilleRecord* record) {
-  // check for a valid record
-  if (record == nullptr) {
-    std::cerr << " Missing Mille record " << std::endl;
-    return;
-  }
-
+                 MilleRecord& record) {
   // prepare the vectors to interface to Mille
   std::vector<unsigned int> localIndices(state.trackParametersDim, 0);
   std::vector<int> globalIndices(state.alignmentDof, 0.);
@@ -91,7 +85,7 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
       localDeriv[iTrkPar] = state.projectionMatrix(iMeas, iTrkPar);
     }
     // write a measurement to the ongoing Mille record.
-    record->addData(
+    record.addData(
         // residual
         state.residual(iMeas),
         // sigma
@@ -156,7 +150,7 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
       localDeriv[iTrkPar] = eigenVecs(iTrkPar, iMeas);
     }
     // and write a pseudo-measurement to Mille.
-    record->addData(
+    record.addData(
         // residual == 0 for pseudo-measurements
         0,
         // EV == weight = 1/sigma^2
@@ -167,7 +161,7 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
         localDeriv, globalIndices, globalDeriv);
   }
   // track is fully written - end the record in Mille
-  record->writeRecord();
+  record.writeRecord();
 }
 
 Mille::MilleDecoder::ReadResult unpackMilleRecord(

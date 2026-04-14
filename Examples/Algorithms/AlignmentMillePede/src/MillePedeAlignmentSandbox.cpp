@@ -163,7 +163,7 @@ ProcessCode MillePedeAlignmentSandbox::execute(
     // and, if successful, dump the information into our Mille record.
     if (aliStates.ok()) {
       const ActsAlignment::detail::TrackAlignmentState& state = *aliStates;
-      ActsPlugins::ActsToMille::dumpToMille(state, m_milleOut.get());
+      ActsPlugins::ActsToMille::dumpToMille(state, *m_milleOut);
     }
   }
 

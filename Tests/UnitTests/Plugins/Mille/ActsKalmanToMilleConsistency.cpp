@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(ZeroFieldKalmanToMille) {
   auto milleRecord = Mille::spawnMilleRecord("myRecord.root", true);
 
   const auto& alignState = evaluateRes.value();
-  ActsPlugins::ActsToMille::dumpToMille(alignState, milleRecord.get());
+  ActsPlugins::ActsToMille::dumpToMille(alignState, *milleRecord);
 
   // trigger file close by destroying the Mille record
   milleRecord->flushOutputFile();

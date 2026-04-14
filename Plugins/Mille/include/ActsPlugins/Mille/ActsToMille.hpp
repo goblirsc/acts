@@ -25,12 +25,12 @@ using Mille::MilleRecord;
 /// @brief Dump a Kalman track encoded as a TrackAlignmentState into
 /// a Mille record.
 /// @param state: Alignment state to dump.
-/// @param record: Mille record to write to - should be valid pointer
+/// @param record: Mille record to write to.
 /// Note: Not very efficient - we have to "un-fit" the kalman track.
 /// Used for R&D, recommending the GBL track model (under development)
 /// for production use.
 void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
-                 MilleRecord* record);
+                 MilleRecord& record);
 
 /// @brief read one record (= track or (constrained) track pair) from
 /// a Mille binary into the equivalent matrices of a TrackAlignmentState.
