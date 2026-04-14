@@ -119,26 +119,24 @@ ProcessCode ActsSolverFromMille::finalize() {
   /// and stored e.g. in a DB file for further use / validation.
   /// For this initial demo, we just print them out.
 
-  std::cout << "Performed internal alignment. " << std::endl;
-  std::cout << std::setw(16) << "  Tracks used: " << alignmentStates.size()
-            << std::endl;
-  std::cout << std::setw(16)
-            << "  avg Chi2/NDF = " << alignResult.averageChi2ONdf << std::endl;
-  std::cout << std::setw(16) << "  Chi2   = " << alignResult.chi2 << std::endl;
-  std::cout << std::setw(16) << "  delta Chi2   = " << alignResult.deltaChi2
-            << std::endl;
-  std::cout << std::setw(16) << "  Alignment parameter updates: " << std::endl;
+  ACTS_INFO("Performed internal alignment. ");
+  ACTS_INFO(std::setw(16) << "  Tracks used: " << alignmentStates.size());
+  ACTS_INFO(std::setw(16) << "  avg Chi2/NDF = "
+                          << alignResult.averageChi2ONdf);
+  ACTS_INFO(std::setw(16) << "  Chi2   = " << alignResult.chi2);
+  ACTS_INFO(std::setw(16) << "  delta Chi2   = " << alignResult.deltaChi2);
+  ACTS_INFO(std::setw(16) << "  Alignment parameter updates: ");
   std::vector<std::string> parLabels{"dx", "dy", "dz", "rx", "ry", "rz"};
   for (auto [surface, index] : alignResult.idxedAlignSurfaces) {
-    std::cout << std::setw(20) << " Surface with geo ID "
-              << surface->geometryId() << ": " << std::endl;
+    ACTS_INFO(std::setw(20)
+              << " Surface with geo ID " << surface->geometryId() << ": ");
     for (std::size_t i = 0; i < Acts::eAlignmentSize; ++i) {
       std::size_t row = Acts::eAlignmentSize * index + i;
-      std::cout << std::setw(20) << parLabels[i] << " = " << std::setw(10)
+      ACTS_INFO(std::setw(20)
+                << parLabels[i] << " = " << std::setw(10)
                 << alignResult.deltaAlignmentParameters(row) << std::setw(6)
                 << " +/- " << std::setw(10)
-                << std::sqrt(alignResult.alignmentCovariance(row, row))
-                << std::endl;
+                << std::sqrt(alignResult.alignmentCovariance(row, row)));
     }
   }
 

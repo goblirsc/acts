@@ -94,7 +94,7 @@ def addAlignmentSandbox(
     fixModules: set,
     inputMeasurements: str = "measurements",
     inputTracks: str = "ckf_tracks",
-    logLevel: acts.logging.Level = acts.logging.WARNING,
+    logLevel: acts.logging.Level = acts.logging.INFO,
     milleOutput: str = "MilleBinary.root",
 ):
     sandbox = MillePedeAlignmentSandbox(
@@ -115,7 +115,7 @@ def addSolverFromMille(
     trackingGeometry: acts.TrackingGeometry,
     magField: acts.MagneticFieldProvider,
     fixModules: set,
-    logLevel: acts.logging.Level = acts.logging.WARNING,
+    logLevel: acts.logging.Level = acts.logging.INFO,
     milleInput: str = "MilleBinary.root",
 ):
 
