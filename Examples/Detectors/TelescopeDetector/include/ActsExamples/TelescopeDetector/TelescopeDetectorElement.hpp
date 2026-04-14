@@ -114,12 +114,14 @@ class TelescopeDetectorElement : public Acts::SurfacePlacementBase {
 
   /// Return the set of alignment transforms in flight
   const std::vector<std::unique_ptr<Acts::Transform3>>& alignedTransforms()
-      const;
+      const {
+    return m_alignedTransforms;
+  };
   /// Is the detector element a sensitive element
   bool isSensitive() const final { return true; }
 
   /// The identifier of the detector element
-  Identifier identifier() const;
+  Identifier identifier() const { return m_elementIdentifier; };
 
  private:
   // The element identifier
@@ -177,13 +179,4 @@ inline void TelescopeDetectorElement::addAlignedTransform(
   m_alignedTransforms[iov] = std::move(alignedTransform);
 }
 
-inline const std::vector<std::unique_ptr<Acts::Transform3>>&
-TelescopeDetectorElement::alignedTransforms() const {
-  return m_alignedTransforms;
-}
-
-inline TelescopeDetectorElement::Identifier
-TelescopeDetectorElement::identifier() const {
-  return m_elementIdentifier;
-}
 }  // namespace ActsExamples
