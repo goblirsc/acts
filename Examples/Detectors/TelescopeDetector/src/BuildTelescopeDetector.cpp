@@ -92,16 +92,16 @@ ActsExamples::buildTelescopeDetector(
     // Create the detector element
     std::shared_ptr<TelescopeDetectorElement> detElement = nullptr;
 
-    auto ID =
+    const auto id =
         static_cast<TelescopeDetectorElement::Identifier>(detectorStore.size());
 
     if (surfaceType == TelescopeSurfaceType::Plane) {
       detElement = std::make_shared<TelescopeDetectorElement>(
-          ID, std::make_shared<Acts::Transform3>(trafo), pBounds, 1._um,
+          id, std::make_shared<Acts::Transform3>(trafo), pBounds, 1._um,
           surfaceMaterial);
     } else {
       detElement = std::make_shared<TelescopeDetectorElement>(
-          ID, std::make_shared<Acts::Transform3>(trafo), rBounds, 1._um,
+          id, std::make_shared<Acts::Transform3>(trafo), rBounds, 1._um,
           surfaceMaterial);
     }
     detectorStore.push_back(detElement);
