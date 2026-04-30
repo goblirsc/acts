@@ -48,7 +48,6 @@ class CartesianSpacePointGrid {
   /// Configuration parameters for the cartesian space point grid.
   struct Config {
     /// minimum pT
-    float minPt = 0 * UnitConstants::MeV;
 
     /// number of bins in the x-coordinate
     int nXbins = 10;
@@ -68,13 +67,6 @@ class CartesianSpacePointGrid {
     float zMin = -2700 * UnitConstants::mm;
     /// maximum z coordinate ofspace points used in the seeding
     float zMax = 2700 * UnitConstants::mm;
-
-    /// enable non equidistant binning in x
-    std::vector<float> xBinEdges{};
-    /// enable non equidistant binning in y
-    std::vector<float> yBinEdges{};
-    /// enable non equidistant binning in z
-    std::vector<float> zBinEdges{};
 
     /// bin finder for bottom space points
     std::optional<GridBinFinder<3ul>> bottomBinFinder;

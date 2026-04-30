@@ -16,16 +16,21 @@ CartesianSpacePointGrid::CartesianSpacePointGrid(
     const Config& config, std::unique_ptr<const Logger> _logger)
     : m_cfg(config), m_logger(std::move(_logger)) {
   if (m_cfg.xMin > m_cfg.xMax) {
-    throw std::runtime_error(
+    throw std::invalid_argument(
         "CartesianSpacePointGrid: xMin is bigger then xMax");
   }
   if (m_cfg.yMin > m_cfg.yMax) {
-    throw std::runtime_error(
+    throw std::invalid_argument(
         "CartesianSpacePointGrid: yMin is bigger then yMax");
   }
   if (m_cfg.zMin > m_cfg.zMax) {
-    throw std::runtime_error(
+    throw std::invalid_argument(
         "CartesianSpacePointGrid: zMin is bigger than zMax");
+  }
+  if (m_cfg.sortingCoord == Acts::eTime) {
+    throw std::invalid_argument(
+        "CartesianSpacePointGrid: time is not supported as a spatial sorting "
+        "dimension");
   }
 
   XAxisType xAxis(m_cfg.xMin, m_cfg.xMax, m_cfg.nXbins);
@@ -42,12 +47,10 @@ CartesianSpacePointGrid::CartesianSpacePointGrid(
   m_binnedGroup.emplace(std::move(grid), m_cfg.bottomBinFinder.value(),
                         m_cfg.topBinFinder.value(), m_cfg.navigation);
   m_grid = &m_binnedGroup->grid();
-  if (m_cfg.sortingCoord != Acts::eTime) {
-    m_sortCoordGetter = [c = m_cfg.sortingCoord, d = m_cfg.sortingDirection](
-                            const ConstSpacePointProxy2& p) {
-      return d * p.xyz()[c];
-    };
-  }
+  m_sortCoordGetter = [c = m_cfg.sortingCoord, d = m_cfg.sortingDirection](
+                          const ConstSpacePointProxy2& p) {
+    return d * p.xyz()[c];
+  };
 }
 
 void CartesianSpacePointGrid::clear() {
