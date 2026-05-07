@@ -15,6 +15,7 @@
 #include "Acts/Propagator/detail/SteppingLogger.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
 #include "ActsAlignment/Kernel/Alignment.hpp"
+#include "ActsAlignment/Kernel/detail/AlignmentEngine.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/DataHandle.hpp"
@@ -111,6 +112,12 @@ class MillePedeAlignmentSandbox final : public IAlgorithm {
   std::shared_ptr<const Acts::TrackingGeometry> m_trackingGeometry;
   /// the Mille record instance for writing our alignment info.
   std::unique_ptr<Mille::MilleRecord> m_milleOut = nullptr;
+
+  mutable std::vector<ActsAlignment::detail::TrackAlignmentState>
+      alignmentStates;
+
+  std::unordered_map<const Acts::Surface*, std::size_t> indexedAlignSurfaces;
+  const Acts::Surface* firstSurf = nullptr;
 };
 
 }  // namespace ActsExamples

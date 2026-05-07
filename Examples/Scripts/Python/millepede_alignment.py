@@ -144,7 +144,11 @@ class DoFs(enum.IntEnum):
 
 class AlignmentParResult:
     def __init__(self, theLine: str):
-        labelTxt, ValTxt, seed, val2, sigmaTxt, n = theLine.split()
+        if len(theLine.split()) == 4:
+            labelTxt, ValTxt, seed, n = theLine.split()
+            sigmaTxt = " 0. "
+        else:
+            labelTxt, ValTxt, seed, val2, sigmaTxt, n = theLine.split()
         self.label = int(labelTxt)
         self.value = float(ValTxt)
         self.sigma = float(sigmaTxt)
@@ -167,12 +171,16 @@ def selByDoF(results: list, DoF: int):
     return [res for res in results if res.label % 6 == int(DoF % 6)]
 
 
-def plotPar(resultFileActs, resultFileMP2, DoF, fname, trueValues=[], **kwargs):
+def plotPar(
+    resultFileActs, resultFileDirect, resultFileMP2, DoF, fname, trueValues=[], **kwargs
+):
 
     results_mp2 = readAli(resultFileMP2)
+    results_direct = readAli(resultFileDirect)
     results_acts = readAli(resultFileActs)
 
     res_mp2 = selByDoF(results_mp2, DoF)
+    res_direct = selByDoF(results_direct, DoF)
     res_acts = selByDoF(results_acts, DoF)
 
     fig, ax = plt.subplots()
@@ -180,19 +188,34 @@ def plotPar(resultFileActs, resultFileMP2, DoF, fname, trueValues=[], **kwargs):
     values = [r.value for r in res_mp2]
     errorsY = [r.sigma for r in res_mp2]
 
+    direct_labels = [r.label for r in res_direct]
+    direct_values = [-1 * r.value for r in res_direct]
+    direct_errorsY = [r.sigma for r in res_direct]
+
     acts_labels = [r.label for r in res_acts]
     # sign convention
     acts_values = [-1 * r.value for r in res_acts]
     acts_errorsY = [r.sigma for r in res_acts]
 
     ax.errorbar(
+        direct_labels,
+        direct_values,
+        direct_errorsY,
+        color="xkcd:light blue",
+        marker="s",
+        linestyle="None",
+        label="ACTS direct",
+    )
+
+    ax.errorbar(
         acts_labels,
         acts_values,
         acts_errorsY,
-        color="r",
-        marker="s",
+        color="xkcd:orange",
+        marker="D",
         linestyle="None",
-        label="ACTS solver",
+        fillstyle="none",
+        label="ACTS via Mille",
     )
 
     ax.errorbar(labels, values, errorsY, label="MillePede-II", **kwargs)
@@ -476,13 +499,24 @@ print(f"Millepede-II Alignment fit ended with {res}.\n   Status code {stat}: {de
 # visualise!
 
 plot_raw_dx = plotPar(
-    actsResultFile, "millepede.res", DoFs.dx, "Results_dx.png", fmt=".k"
+    actsResultFile,
+    "DirectSolver.txt",
+    "millepede.res",
+    DoFs.dx,
+    "Results_dx.png",
+    fmt=".k",
 )
 plot_raw_dy = plotPar(
-    actsResultFile, "millepede.res", DoFs.dy, "Results_dy.png", fmt=".k"
+    actsResultFile,
+    "DirectSolver.txt",
+    "millepede.res",
+    DoFs.dy,
+    "Results_dy.png",
+    fmt=".k",
 )
 plot_raw_dz = plotPar(
     actsResultFile,
+    "DirectSolver.txt",
     "millepede.res",
     DoFs.dz,
     "Results_dz.png",
@@ -490,11 +524,26 @@ plot_raw_dz = plotPar(
     fmt=".k",
 )
 plot_raw_rx = plotPar(
-    actsResultFile, "millepede.res", DoFs.rx, "Results_rx.png", fmt=".k"
+    actsResultFile,
+    "DirectSolver.txt",
+    "millepede.res",
+    DoFs.rx,
+    "Results_rx.png",
+    fmt=".k",
 )
 plot_raw_ry = plotPar(
-    actsResultFile, "millepede.res", DoFs.ry, "Results_ry.png", fmt=".k"
+    actsResultFile,
+    "DirectSolver.txt",
+    "millepede.res",
+    DoFs.ry,
+    "Results_ry.png",
+    fmt=".k",
 )
 plot_raw_rz = plotPar(
-    actsResultFile, "millepede.res", DoFs.rz, "Results_rz.png", fmt=".k"
+    actsResultFile,
+    "DirectSolver.txt",
+    "millepede.res",
+    DoFs.rz,
+    "Results_rz.png",
+    fmt=".k",
 )
