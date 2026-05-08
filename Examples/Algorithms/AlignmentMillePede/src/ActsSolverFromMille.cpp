@@ -100,14 +100,20 @@ ProcessCode ActsSolverFromMille::finalize() {
   std::vector<ActsAlignment::detail::TrackAlignmentState> alignmentStates;
   ActsAlignment::detail::TrackAlignmentState state;
   std::size_t iRec = 0;
-  while (ActsPlugins::ActsToMille::unpackMilleRecord(
-             *milleReader, state, alignResult.idxedAlignSurfaces) ==
-         Mille::MilleDecoder::ReadResult::OK) {
+  auto res = Mille::MilleDecoder::ReadResult::OK;
+  do {
     if (++iRec % 10000 == 0) {
       ACTS_INFO("     Reading input record " << iRec);
     }
-    alignmentStates.push_back(state);
-  }
+    res = ActsPlugins::ActsToMille::unpackMilleRecord(
+        *milleReader, state, alignResult.idxedAlignSurfaces);
+    if (res == Mille::MilleDecoder::ReadResult::OK)
+      alignmentStates.push_back(state);
+    else if (res == Mille::MilleDecoder::ReadResult::error) {
+      std::cerr << "Encountered a read error " << std::endl;
+    }
+
+  } while (res != Mille::MilleDecoder::ReadResult::atEof);
 
   /// TODO: Should try a local iteration without track state info.
   /// Can use the linearised info in the Track Alignment State

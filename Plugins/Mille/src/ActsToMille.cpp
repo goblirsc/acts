@@ -45,11 +45,11 @@ unsigned long globalIndexSurfToParam(unsigned long surfaceIndex,
 void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
                  MilleRecord& record) {
   // prepare the vectors to interface to Mille
-  std::vector<unsigned int> localIndices(state.trackParametersDim, 0);
   std::vector<int> globalIndices(state.alignmentDof, 0.);
+
   std::vector<double> localDeriv(state.trackParametersDim, 0.);
   std::vector<double> globalDeriv(state.alignmentDof, 0.);
-
+  std::vector<unsigned int> localIndices(state.trackParametersDim, 0);
   // prepare the track parameter index array (always the same)
   std::iota(localIndices.begin(), localIndices.end(), 1);
 
@@ -65,10 +65,41 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
     }
   }
 
+  /// Analyse the global cov a bit
+  std::map<double, int> trkParByCov;
+  for (std::size_t k = 0; k < state.trackParametersDim; ++k) {
+    trkParByCov.emplace(state.trackParametersCovariance(k, k), k);
+  }
+  // std::cout << " ======== Sorted track parameter covariances: =======
+  // "<<std::endl;
+  std::vector<std::string> parTypeNames{"l0",    "l1",     "phi",
+                                        "theta", "qoverp", "time"};
+  std::set<std::size_t> kickUsOut = {};
+  // std::cout << std::setw(8) << " Par: "<<"  "<<std::setw(12)<<" Cov "<<"  "<<
+  // std::setw(7) <<" type "<<std::endl;
+  double prev = 0;
+  for (auto& [cov, index] : trkParByCov) {
+    // std::cout << std::setw(8) << index <<"  "<<std::setw(12)<<cov<<"  "<<
+    // std::setw(7) << parTypeNames[index % parTypeNames.size()]<< std::endl;
+    if (prev != 0 && cov > 1e6 * prev) {
+      std::cout << " Detected unconstrained parameter at index " << index
+                << " - will suppress from alignment fit. " << std::endl;
+      kickUsOut.insert(index);
+    } else {
+      prev = cov;
+    }
+  }
+  // std::cout << " ----------------------------------------------------
+  // "<<std::endl;
+
+  std::size_t effectiveTrackParDim =
+      state.trackParametersDim - kickUsOut.size();
+
   /// 1) write out the local measurements on the surfaces and their direct
   /// derivatives. This will populate the upper / left three quadrants of the
   /// alignment matrix, including direct correlations between alignment and
   /// track parameters.
+
   /// TODO: Add explicit diagonalisation for correlated (stereo) measurements.
   for (std::size_t iMeas = 0; iMeas < state.measurementDim; ++iMeas) {
     // arrange the global parameters correctly
@@ -79,10 +110,16 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
       globalDeriv[srcGlobal] =
           state.alignmentToResidualDerivative(iMeas, srcGlobal);
     }
+    localDeriv.assign(localDeriv.size(), 0.);
+    std::size_t iPar = 0;
     // local derivatives due to measurement uncertainties
     for (std::size_t iTrkPar = 0; iTrkPar < state.trackParametersDim;
          ++iTrkPar) {
-      localDeriv[iTrkPar] = state.projectionMatrix(iMeas, iTrkPar);
+      if (kickUsOut.contains(iTrkPar)) {
+        continue;
+      }
+      localDeriv[iPar] = state.projectionMatrix(iMeas, iTrkPar);
+      ++iPar;
     }
     // write a measurement to the ongoing Mille record.
     record.addData(
@@ -110,32 +147,108 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
   /// compute the part of the weight matrix arising from Step 1).
   /// This is already present in the Mille record and should not
   /// be duplicated
+
+  Acts::DynamicMatrix reducedCovariance{effectiveTrackParDim,
+                                        effectiveTrackParDim};
+  Acts::DynamicMatrix reducedProjection{state.measurementDim,
+                                        effectiveTrackParDim};
+  std::size_t ix = 0;
+  for (std::size_t k = 0; k < state.trackParametersDim; ++k) {
+    std::size_t iy = 0;
+    if (kickUsOut.contains(k)) {
+      continue;
+    }
+    for (std::size_t m = 0; m < state.measurementDim; ++m) {
+      reducedProjection(m, ix) = state.projectionMatrix(m, k);
+    }
+    for (std::size_t l = 0; l < state.trackParametersDim; ++l) {
+      if (kickUsOut.contains(l)) {
+        continue;
+      }
+      reducedCovariance(ix, iy) = state.trackParametersCovariance(k, l);
+      ++iy;
+    }
+    ++ix;
+  }
+
   const Acts::DynamicMatrix weightMatMeasurements =
       state.projectionMatrix.transpose() *
       state.measurementCovariance.inverse() * state.projectionMatrix;
+
+  const Acts::DynamicMatrix reducedWeightMatMeasurements =
+      reducedProjection.transpose() * state.measurementCovariance.inverse() *
+      reducedProjection;
 
   // regularise the (full) Kalman covariance. This is needed to stabilise
   // poorly constrained directions (usually: time)
   const Acts::DynamicMatrix regularisedCov =
       regulariseCovariance(state.trackParametersCovariance);
 
+  const Acts::DynamicMatrix reducedRegularisedCov =
+      // regulariseCovariance(reducedCovariance,1.e-15,5000.,0);
+      regulariseCovariance(reducedCovariance, 1.e-12, 5000., 1e-15);
+
   // now we can get the piece of the weight matrix not already covered by
   // the measurement uncertainties
   const Acts::DynamicMatrix correlationTerm =
       getInverseComplement(regularisedCov, weightMatMeasurements);
+
+  const Acts::DynamicMatrix reducedCorrelationTerm =
+      getInverseComplement(reducedRegularisedCov, reducedWeightMatMeasurements);
+
+  // std::cout << " Original covariance
+  // ("<<state.trackParametersCovariance.rows()<<" x
+  // "<<state.trackParametersCovariance.cols()<<")" <<std::endl <<
+  // state.trackParametersCovariance.block(0,0,8,8)<< std::endl; std::cout << "
+  // Reduced covariance ("<<reducedCovariance.rows()<<" x
+  // "<<reducedCovariance.cols()<<")" <<std::endl <<
+  // reducedCovariance.block(0,0,8,8)<< std::endl; std::cout << " Original
+  // projection ("<<state.projectionMatrix.rows()<<" x
+  // "<<state.projectionMatrix.cols()<<")" <<std::endl <<
+  // state.projectionMatrix.block(0,0,8,8)<< std::endl; std::cout << " Reduced
+  // projection ("<<reducedProjection.rows()<<" x
+  // "<<reducedProjection.cols()<<")" <<std::endl <<
+  // reducedProjection.block(0,0,8,8)<< std::endl; std::cout << " Original meas
+  // weight mat ("<<weightMatMeasurements.rows()<<" x
+  // "<<weightMatMeasurements.cols()<<")" <<std::endl <<
+  // weightMatMeasurements.block(0,0,8,8)<< std::endl; std::cout << " Reduced
+  // meas weight mat ("<<reducedWeightMatMeasurements.rows()<<" x
+  // "<<reducedWeightMatMeasurements.cols()<<")" <<std::endl <<
+  // reducedWeightMatMeasurements.block(0,0,8,8)<< std::endl; std::cout << "
+  // Original correlation cov ("<<correlationTerm.rows()<<" x
+  // "<<correlationTerm.cols()<<")" <<std::endl <<
+  // correlationTerm.block(0,0,8,8)<< std::endl;
+
+  // std::cout << " Alignment derivatives:
+  // ("<<state.alignmentToResidualDerivative.rows()<<" x
+  // "<<state.alignmentToResidualDerivative.cols()<<") : " <<std::endl; for (int
+  // meas = 0; meas < 9; ++meas){
+  //   for (int sen = 0; sen < 9; ++sen){
+  //     std::cout <<"   Measurements on surface "<<meas<<" by DoF for surface
+  //     "<<sen<<":"<<std::endl; std::cout  <<
+  //     state.alignmentToResidualDerivative.block(meas * 2, sen * 6,2,6)<<
+  //     std::endl;
+  //   }
+  // }
 
   // Decompose the matrix we need to add into a sum of rank-1 matrices,
   // C_add = sum (lambda_i v_i v_i^T), which can be interpreted
   // as pseudo-measurements with sigma_i 1/sqrt(lambda_i) and local derivatives
   // v_i. This relies on C_add being symmetric positive (semi)definite.
   Eigen::SelfAdjointEigenSolver<Acts::DynamicMatrix> eigenSolver(
-      correlationTerm);
+      reducedCorrelationTerm);
   if (eigenSolver.info() != Eigen::Success) {
     std::cout << " FAILED to find decompose correlation term" << std::endl;
     return;
   }
   const Acts::DynamicVector eigenVals = eigenSolver.eigenvalues();
   const Acts::DynamicMatrix eigenVecs = eigenSolver.eigenvectors();
+  //
+  std::cout << " Eigenvalues (" << eigenVals.size() << "): " << std::endl
+            << eigenVals << std::endl;
+  std::cout << " Eigenvecs 1-3 (" << eigenVecs.rows() << " x "
+            << eigenVecs.cols() << "): " << std::endl
+            << eigenVecs.block(0, 0, eigenVecs.rows(), 3) << std::endl;
 
   // no dependence on global parameters - these terms only enter the
   // track covariance sub-matrix of the alignment problem (bottom right
@@ -144,10 +257,21 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
   globalIndices.clear();
 
   /// convert each EV to a pseudo-measurement
-  for (std::size_t iMeas = 0; iMeas < state.trackParametersDim; ++iMeas) {
+  for (long iMeas = 0; iMeas < eigenVecs.rows(); ++iMeas) {
+    // std::cout <
+    if (eigenVals(iMeas) <= 0)
+      continue;
+    localDeriv.assign(localDeriv.size(), 0.);
     // fill the local derivatives from the current eigenvector
-    for (std::size_t iTrkPar = 0; iTrkPar < localDeriv.size(); ++iTrkPar) {
-      localDeriv[iTrkPar] = eigenVecs(iTrkPar, iMeas);
+    std::size_t iPar = 0;
+
+    for (std::size_t iTrkPar = 0; iTrkPar < state.trackParametersDim;
+         ++iTrkPar) {
+      if (kickUsOut.contains(iTrkPar)) {
+        continue;
+      }
+      localDeriv[iPar] = eigenVecs(iPar, iMeas);
+      ++iPar;
     }
     // and write a pseudo-measurement to Mille.
     record.addData(
@@ -160,6 +284,7 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
         // local derivatives
         localDeriv, globalIndices, globalDeriv);
   }
+  ++ix;
   // track is fully written - end the record in Mille
   record.writeRecord();
 }
@@ -205,13 +330,20 @@ Mille::MilleDecoder::ReadResult unpackMilleRecord(
 
   // discover labels in use
   for (const Mille::MilleMeasurement& measurement : measurements) {
+    if (measurement.localLabels.empty())
+      continue;
+
     auto [minLabel, maxLabel] = std::minmax_element(
         measurement.localLabels.begin(), measurement.localLabels.end());
+
     firstLocal = std::min(firstLocal, *minLabel);
     lastLocal = std::max(lastLocal, *maxLabel);
+
     seenGlobalLabels.insert(measurement.globalLabels.begin(),
                             measurement.globalLabels.end());
   }
+  if (lastLocal < firstLocal)
+    return Mille::MilleDecoder::ReadResult::error;
   targetState.trackParametersDim = lastLocal - firstLocal + 1;
   targetState.alignmentDof = seenGlobalLabels.size();
 

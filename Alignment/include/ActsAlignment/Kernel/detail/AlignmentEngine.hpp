@@ -187,6 +187,7 @@ TrackAlignmentState trackAlignmentState(
     measurementStates.push_back({ts.index(), isAlignable});
     // Add up measurement dimension
     alignState.measurementDim += ts.calibratedSize();
+
     return true;
   });
 

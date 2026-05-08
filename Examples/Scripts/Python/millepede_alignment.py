@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import floor
 from asyncio import subprocess
 import os
 import argparse
@@ -143,7 +144,7 @@ class DoFs(enum.IntEnum):
 
 
 class AlignmentParResult:
-    def __init__(self, theLine: str):
+    def __init__(self, theLine: str = " 0 0 0 0 "):
         if len(theLine.split()) == 4:
             labelTxt, ValTxt, seed, n = theLine.split()
             sigmaTxt = " 0. "
@@ -157,6 +158,43 @@ class AlignmentParResult:
 
     def signif(self):
         return (self.value - self.seed) / self.sigma
+
+
+def readMpEve(fname: str = "millepede.eve"):
+    res = {}
+    evValue = 0
+    with open(fname, "r") as f:
+        for line in f.readlines():
+            tokens = line.split()
+            if len(tokens) == 0:
+                continue
+            if "Eigenvector" in tokens:
+                evIndex = tokens[1]
+                evValue = tokens[4]
+                res[evValue] = {"EV": evIndex, "Elements": []}
+                # print ("EV ",evIndex,"=",evValue)
+                continue
+            atLabel = True
+            atVal = False
+            label = 0
+            val = 0
+            for thing in tokens:
+                if atLabel:
+                    label = thing
+                    atLabel = False
+                    atVal = True
+                elif atVal:
+                    val = thing
+                    atVal = False
+                    atLabel = True
+                else:
+                    print("should never get here")
+                if label != 0 and atLabel:
+                    thisPar = AlignmentParResult()
+                    thisPar.label = int(label)
+                    thisPar.value = float(val)
+                    res[evValue]["Elements"] += [thisPar]
+    return res
 
 
 def readAli(fin):
@@ -226,7 +264,7 @@ def plotPar(
     for label, value in trueValues:
         injected = [-1 * value for r in res_mp2 if r.label == label]
         if len(injected) > 0:
-            corrVals += [injected]
+            corrVals += injected
             corrLabels += [label]
             corrErrors += [0]
     ax.errorbar(
@@ -242,6 +280,45 @@ def plotPar(
     ax.set_ylabel("Correction")
     ax.grid(which="major", axis="y")
     ax.legend()
+    fig.savefig(fname, bbox_inches="tight", pad_inches=0.2)
+
+
+def plotWM(evFile, fname, evToPlot: list, **kwargs):
+
+    results_EV = readMpEve(evFile)
+    cols = ["k", "b", "r", "orange", "green", "violet"]
+    fig, ax = plt.subplots(
+        2, 3, sharey="row", sharex=True, figsize=[3 * 6.4, 2 * 4.8], dpi=300
+    )
+    dofs = [DoFs.dx, DoFs.dy, DoFs.dz, DoFs.rx, DoFs.ry, DoFs.rz]
+    dofnames = ["tx", "ty", "tz", "rx", "ry", "rz"]
+    for i, D in enumerate(dofs):
+        ix = i % 3
+        iy = floor(i / 3)
+        ientry = 0
+        for eigenval, dic in results_EV.items():
+            ientry += 1
+            if ientry - 1 not in evToPlot:
+                continue
+            theIndex = dic["EV"]
+            pars = selByDoF(dic["Elements"], D)
+
+            labels = [r.label for r in pars]
+            values = [r.value for r in pars]
+
+            ax[iy, ix].errorbar(
+                labels,
+                values,
+                [0 for v in values],
+                label=f"EV {theIndex} = {eigenval}",
+                **kwargs,
+            )
+
+        ax[iy, ix].set_xlabel("Parameter label")
+        ax[iy, ix].set_ylabel(f"Eigenvec {dofnames[i]} component")
+        ax[iy, ix].grid(which="major", axis="y")
+    ax[1, 2].legend()
+
     fig.savefig(fname, bbox_inches="tight", pad_inches=0.2)
 
 
@@ -277,6 +354,8 @@ detector = getTelescopeDetector()
 trackingGeometry = detector.trackingGeometry()
 decorators = detector.contextDecorators()
 
+gcx = acts.GeometryContext.dangerouslyDefaultConstruct()
+
 # inject a known misalignment.
 
 # Misalign the second tracking layer (ID = 4).
@@ -287,20 +366,42 @@ leShift = AlignmentGeneratorGlobalShift()
 leShift.shift = acts.Vector3(0, 0, 200.0e-3)
 
 # now add some boilerplate code to make this happen
-alignDecoConfig = AlignmentDecorator.Config()
-alignDecoConfig.nominalStore = GeoIdAlignmentStore(
-    StructureSelector(trackingGeometry).selectedTransforms(
-        acts.GeometryContext.dangerouslyDefaultConstruct(), layerToBump
-    )
+alignmentSet = StructureSelector(trackingGeometry).selectedTransforms(gcx, layerToBump)
+alignDecoConfigMisalModule = AlignmentDecorator.Config()
+alignDecoConfigMisalModule.nominalStore = GeoIdAlignmentStore(alignmentSet)
+alignDecoConfigMisalModule.iovGenerators = [((0, 10000000), leShift)]
+alignDecoMisalModule = AlignmentDecorator(
+    alignDecoConfigMisalModule, acts.logging.WARNING
 )
-alignDecoConfig.iovGenerators = [((0, 10000000), leShift)]
-alignDeco = AlignmentDecorator(alignDecoConfig, acts.logging.WARNING)
-contextDecorators = [alignDeco]
+
+globShiftSet = {}
+# now we move the entire decorator in +x
+for moduleIndex in range(9):
+
+    # Misalign the second tracking layer (ID = 4).
+    toBump = acts.GeometryIdentifier(layer=(moduleIndex + 1) * 2, volume=1)
+
+    globShiftSet |= StructureSelector(trackingGeometry).selectedTransforms(gcx, toBump)
+
+
+# shift all layers by 100 microns in the global X direction
+globShift = AlignmentGeneratorGlobalShift()
+globShift.shift = acts.Vector3(10.0e-3, -10.0e-3, 20.0e-3)
+
+alignDecoConfigGlobShift = AlignmentDecorator.Config()
+alignDecoConfigGlobShift.nominalStore = GeoIdAlignmentStore(globShiftSet)
+alignDecoConfigGlobShift.iovGenerators = [((0, 10000000), globShift)]
+alignDecoGlobShift = AlignmentDecorator(alignDecoConfigGlobShift, acts.logging.WARNING)
 
 # decide on at least on detector module to fix in place
 # as a reference for the alignment.
 # By default, fix the innermost layer.
-fixModules = {acts.GeometryIdentifier(layer=2, volume=1, sensitive=1)}
+# fixModules = set()  #  {acts.GeometryIdentifier(layer=2, volume=1, sensitive=1)}
+fixModules = {
+    acts.GeometryIdentifier(layer=2, volume=1, sensitive=1),
+    acts.GeometryIdentifier(layer=18, volume=1, sensitive=1),
+    acts.GeometryIdentifier(layer=10, volume=1, sensitive=1),
+}
 
 
 # More Boilerplate code - for setting up the sequence
@@ -315,7 +416,8 @@ s = Sequencer(
 
 # Add a context with the alignment shift - sim, digi and
 # initial reco will "see" the distorted detector
-s.addContextDecorator(alignDeco)
+# s.addContextDecorator(alignDecoGlobShift)
+s.addContextDecorator(alignDecoMisalModule)
 
 # Run particle gun and fire some muons at our telescope
 addParticleGun(
@@ -421,7 +523,7 @@ addCKFTracks(
     writePerformance=False,
     writeTrackSummary=False,
 )
-milleBinary = outputDir / "MyBinary.root"
+milleBinary = outputDir / "MyBinary.csv"
 # And add our alignment sandbox
 addAlignmentSandbox(s, trackingGeometry, field, fixModules, milleOutput=milleBinary)
 actsResultFile = "ActsAlignmentRes.txt"
@@ -447,7 +549,8 @@ pedeSteeringArgs = [
     "Cfiles",
     str(milleBinary),
     # set solution method to matrix inversion, max 5 internal iterations, tolerance 0.8
-    "Method  Inversion 5 0.8",
+    "Method  diagonalization 5 0.8",
+    # "Method  Inversion 5 0.8",
     # print progress
     "monitorprogress 1 10000",
     # min 10 entries per degree of freedom to activate in fit
@@ -468,7 +571,12 @@ pedeSteeringArgs = [
     "maxlocalcond 10.",
     # outlier warning
     "outlierfracwarnthreshold 1",
+    # "Parameter",
 ]
+# fix the last layer too
+# pedeSteeringArgs+= [f"{i}  0.0   -1.   " for i in range(43,49)]
+# lock y-movements
+# pedeSteeringArgs+= [f"{i*6+2}  0.0   -1.   " for i in range(8)]
 steeringFile = outputDir / "pedeSteerMaster.txt"
 
 with open(steeringFile, "w") as fSteer:
@@ -491,8 +599,8 @@ statCodes = {
     (10, 40): "abort",
 }
 res = "unknown"
-for range, name in statCodes.items():
-    if range[0] <= stat and stat <= range[1]:
+for interval, name in statCodes.items():
+    if interval[0] <= stat and stat <= interval[1]:
         res = name
 print(f"Millepede-II Alignment fit ended with {res}.\n   Status code {stat}: {descr}")
 
@@ -504,6 +612,7 @@ plot_raw_dx = plotPar(
     "millepede.res",
     DoFs.dx,
     "Results_dx.png",
+    # trueValues=[(6 * k+1, 10.e-3) for k in range(9) ],
     fmt=".k",
 )
 plot_raw_dy = plotPar(
@@ -512,6 +621,7 @@ plot_raw_dy = plotPar(
     "millepede.res",
     DoFs.dy,
     "Results_dy.png",
+    # trueValues=[(6 * k+2, -10.e-3) for k in range(9) ],
     fmt=".k",
 )
 plot_raw_dz = plotPar(
@@ -520,6 +630,7 @@ plot_raw_dz = plotPar(
     "millepede.res",
     DoFs.dz,
     "Results_dz.png",
+    # trueValues=[(6 * k+3, 20.e-3) for k in range(9) ],
     trueValues=[(3, 0.200)],
     fmt=".k",
 )
@@ -546,4 +657,33 @@ plot_raw_rz = plotPar(
     DoFs.rz,
     "Results_rz.png",
     fmt=".k",
+)
+
+# evSource = "millepede.eve"
+evSource = "ActsEigenVecs.txt"
+for EV in range(9):
+    plot_ev_single = plotWM(evSource, f"EigenVec_{EV}.png", evToPlot=[EV])
+
+plot_ev_group = plotWM(
+    evSource,
+    f"EigenVecs_first6.png",
+    evToPlot=range(6),
+)
+for EV in range(9):
+    plot_ev_single = plotWM(evSource, f"EigenVec_{EV}.png", evToPlot=[EV])
+
+plot_ev_group = plotWM(
+    evSource,
+    f"EigenVecs_first4.png",
+    evToPlot=range(4),
+)
+plot_ev_group = plotWM(
+    evSource,
+    f"EigenVecs_first5.png",
+    evToPlot=range(5),
+)
+plot_ev_group = plotWM(
+    evSource,
+    f"EigenVecs_first8.png",
+    evToPlot=range(8),
 )

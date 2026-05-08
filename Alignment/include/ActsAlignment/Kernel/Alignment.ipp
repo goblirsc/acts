@@ -17,6 +17,7 @@
 #include "ActsAlignment/Kernel/AlignmentError.hpp"
 #include "ActsAlignment/Kernel/detail/AlignmentEngine.hpp"
 
+#include <fstream>
 #include <queue>
 
 template <typename fitter_t>
@@ -173,6 +174,40 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
   // chi2 change
   alignResult.deltaChi2 = 0.5 * sumChi2Derivative.transpose() *
                           alignResult.deltaAlignmentParameters;
+
+  // Eigen::JacobiSVD<Acts::DynamicMatrix, Eigen::ComputeThinU |
+  // Eigen::ComputeThinV> svd(sumChi2SecondDerivative);
+  Eigen::SelfAdjointEigenSolver<Acts::DynamicMatrix> eigenSolver(
+      sumChi2SecondDerivative);
+  if (eigenSolver.info() != Eigen::Success) {
+    std::cout << " FAILED to find decompose correlation term" << std::endl;
+    return;
+  }
+  const Acts::DynamicVector eigenVals = eigenSolver.eigenvalues();
+  const Acts::DynamicMatrix eigenVecs = eigenSolver.eigenvectors();
+
+  std::map<double, int> sortedEV;
+  for (int k = 0; k < eigenVals.size(); ++k) {
+    sortedEV.emplace(eigenVals(k), k);
+  }
+  std::ofstream ofs;
+  ofs.open("ActsEigenVecs.txt");
+
+  std::vector<std::string> parLabels{"tx", "ty", "tz", "rx", "ry", "rz"};
+  for (auto& [EV, index] : sortedEV) {
+    // ofs << " Eigenvalue "<<EV<< " with EigenVector "<<std::endl;
+    ofs << " Eigenvector " << index << " has eigenvalue " << EV << std::endl;
+    for (std::size_t row = 0; row < eigenVecs.rows(); ++row) {
+      ofs << "        " << std::setw(12) << "  " << std::setw(3) << row + 1
+          << "  " << std::setw(12) << eigenVecs(row, index) << std::endl;
+      // ofs <<"        "<<std::setw(12)<<" Module
+      // "<<std::setw(3)<<std::floor(col / 6)+1<<" "<<parLabels[col%6]<<":
+      // "<<std::setw(12)<<eigenVecs(index, col)<< std::endl;
+    }
+    ofs << std::endl;
+  }
+
+  ofs.close();
 }
 
 template <typename fitter_t>
@@ -205,6 +240,14 @@ ActsAlignment::Alignment<fitter_t>::updateAlignmentParameters(
     const Acts::Vector3 newCenter = oldCenter + deltaCenter;
     Acts::Transform3 newTransform = oldTransform;
     newTransform.translation() = newCenter;
+
+    // const auto& rotation = oldTransform.rotation();
+    // const Acts::Vector3 newCenter =
+    //     oldCenter + deltaCenter(0) * rotation.col(0) +
+    //     deltaCenter(1) * rotation.col(1) + deltaCenter(2) * rotation.col(2);
+    // Acts::Transform3 newTransform = oldTransform;
+    // newTransform.translation() = newCenter;
+
     // Rotation first around fixed local x, then around fixed local y, and last
     // around fixed local z, this is the same as first around local z, then
     // around new loca y, and last around new local x below
