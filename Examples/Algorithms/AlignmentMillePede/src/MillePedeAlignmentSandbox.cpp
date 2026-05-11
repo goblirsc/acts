@@ -145,27 +145,18 @@ ProcessCode MillePedeAlignmentSandbox::execute(
     // for starting parameters for the re-fit, ask the
     // existing CKF track
     Acts::BoundTrackParameters refPar = track.createParametersAtReference();
-    std::cout << " COV before " << std::endl
-              << refPar.covariance().value() << std::endl;
-    // hand-picked values that appear to strike a balance
-    // between numerical stability of the kalman fit
-    // and not artificially constraining the alignment
-    // by too much.
-    std::array<double, 6> ErrorScaleFact{
-        1000,  // locx
-        1000,  // locy
-        1000,  // theta
-        1000,  // phi
-        20,    // qop
-        1.     // time
-    };
+
+    /// replace the covariance from the earlier track fit by a set of
+    /// large uncertainties to avoid constraining the re-fit to the
+    /// previous iteration.
     Acts::BoundMatrix& cov = refPar.covariance().value();
-    for (int k = 0; k < 6; ++k) {
-      cov.row(k) *= ErrorScaleFact[k];
-      cov.col(k) *= ErrorScaleFact[k];
-    }
-    std::cout << " COV after " << std::endl
-              << refPar.covariance().value() << std::endl;
+    cov = Acts::BoundMatrix::Identity();
+    cov(0, 0) = 100000;
+    cov(1, 1) = 100000;
+    cov(2, 2) = 4;
+    cov(3, 3) = 4;
+    cov(4, 4) = 0.05;
+    cov(5, 5) = 1e8;
 
     // Collect source links from this track
     trackSourceLinks.clear();

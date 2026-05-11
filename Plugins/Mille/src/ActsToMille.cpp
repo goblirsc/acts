@@ -186,7 +186,8 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
 
   const Acts::DynamicMatrix reducedRegularisedCov =
       // regulariseCovariance(reducedCovariance,1.e-15,5000.,0);
-      regulariseCovariance(reducedCovariance, 1.e-12, 5000., 1e-15);
+      // regulariseCovariance(reducedCovariance, 1.e-10, -1., 1e-15);
+      regulariseCovariance(reducedCovariance, -1, -1., 1e-9);
 
   // now we can get the piece of the weight matrix not already covered by
   // the measurement uncertainties
@@ -195,41 +196,6 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
 
   const Acts::DynamicMatrix reducedCorrelationTerm =
       getInverseComplement(reducedRegularisedCov, reducedWeightMatMeasurements);
-
-  // std::cout << " Original covariance
-  // ("<<state.trackParametersCovariance.rows()<<" x
-  // "<<state.trackParametersCovariance.cols()<<")" <<std::endl <<
-  // state.trackParametersCovariance.block(0,0,8,8)<< std::endl; std::cout << "
-  // Reduced covariance ("<<reducedCovariance.rows()<<" x
-  // "<<reducedCovariance.cols()<<")" <<std::endl <<
-  // reducedCovariance.block(0,0,8,8)<< std::endl; std::cout << " Original
-  // projection ("<<state.projectionMatrix.rows()<<" x
-  // "<<state.projectionMatrix.cols()<<")" <<std::endl <<
-  // state.projectionMatrix.block(0,0,8,8)<< std::endl; std::cout << " Reduced
-  // projection ("<<reducedProjection.rows()<<" x
-  // "<<reducedProjection.cols()<<")" <<std::endl <<
-  // reducedProjection.block(0,0,8,8)<< std::endl; std::cout << " Original meas
-  // weight mat ("<<weightMatMeasurements.rows()<<" x
-  // "<<weightMatMeasurements.cols()<<")" <<std::endl <<
-  // weightMatMeasurements.block(0,0,8,8)<< std::endl; std::cout << " Reduced
-  // meas weight mat ("<<reducedWeightMatMeasurements.rows()<<" x
-  // "<<reducedWeightMatMeasurements.cols()<<")" <<std::endl <<
-  // reducedWeightMatMeasurements.block(0,0,8,8)<< std::endl; std::cout << "
-  // Original correlation cov ("<<correlationTerm.rows()<<" x
-  // "<<correlationTerm.cols()<<")" <<std::endl <<
-  // correlationTerm.block(0,0,8,8)<< std::endl;
-
-  // std::cout << " Alignment derivatives:
-  // ("<<state.alignmentToResidualDerivative.rows()<<" x
-  // "<<state.alignmentToResidualDerivative.cols()<<") : " <<std::endl; for (int
-  // meas = 0; meas < 9; ++meas){
-  //   for (int sen = 0; sen < 9; ++sen){
-  //     std::cout <<"   Measurements on surface "<<meas<<" by DoF for surface
-  //     "<<sen<<":"<<std::endl; std::cout  <<
-  //     state.alignmentToResidualDerivative.block(meas * 2, sen * 6,2,6)<<
-  //     std::endl;
-  //   }
-  // }
 
   // Decompose the matrix we need to add into a sum of rank-1 matrices,
   // C_add = sum (lambda_i v_i v_i^T), which can be interpreted
@@ -258,7 +224,6 @@ void dumpToMille(const ActsAlignment::detail::TrackAlignmentState& state,
 
   /// convert each EV to a pseudo-measurement
   for (long iMeas = 0; iMeas < eigenVecs.rows(); ++iMeas) {
-    // std::cout <
     if (eigenVals(iMeas) <= 0)
       continue;
     localDeriv.assign(localDeriv.size(), 0.);

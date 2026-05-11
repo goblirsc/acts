@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from math import floor
-from asyncio import subprocess
 import os
 import argparse
 import pathlib
@@ -484,14 +483,14 @@ addSeeding(
         sigmaScattering=5,
         radLengthPerSeed=0.1,
         minPt=0.5 * u.GeV,
-        impactMax=3 * u.mm,
+        impactMax=50 * u.mm,
     ),
     # why do we need to specify this here again? Not taken from event context?
     seedFinderOptionsArg=SeedFinderOptionsArg(bFieldInZ=2 * u.T),
     seedingAlgorithm=SeedingAlgorithm.GridTriplet,
     initialSigmas=[
-        3 * u.mm,
-        3 * u.mm,
+        20 * u.mm,
+        20 * u.mm,
         1 * u.degree,
         1 * u.degree,
         0 * u.e / u.GeV,
@@ -523,7 +522,7 @@ addCKFTracks(
     writePerformance=False,
     writeTrackSummary=False,
 )
-milleBinary = outputDir / "MyBinary.csv"
+milleBinary = outputDir / "MyBinary.dat"
 # And add our alignment sandbox
 addAlignmentSandbox(s, trackingGeometry, field, fixModules, milleOutput=milleBinary)
 actsResultFile = "ActsAlignmentRes.txt"
