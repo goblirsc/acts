@@ -506,7 +506,7 @@ jobs:
           compiler: g++
           flavor: cuda13
           # Flavors need v24.0.0 or newer.
-          DEPENDENCY_TAG: v24.1.0
+          DEPENDENCY_TAG: v24.4.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           env_file: .env
 
@@ -627,7 +627,7 @@ jobs:
           compiler: g++
           flavor: cuda13
           # Flavors need v24.0.0 or newer.
-          DEPENDENCY_TAG: v24.1.0
+          DEPENDENCY_TAG: v24.4.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           env_file: .env
 
@@ -693,7 +693,7 @@ jobs:
           compiler: g++
           flavor: cuda13
           # Flavors need v24.0.0 or newer.
-          DEPENDENCY_TAG: v24.1.0
+          DEPENDENCY_TAG: v24.4.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           env_file: .env
 
@@ -761,7 +761,7 @@ jobs:
           compiler: g++
           flavor: cuda13
           # Flavors need v24.0.0 or newer.
-          DEPENDENCY_TAG: v24.1.0
+          DEPENDENCY_TAG: v24.4.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           env_file: .env
 
@@ -835,7 +835,7 @@ jobs:
           compiler: g++
           flavor: cuda13
           # Flavors need v24.0.0 or newer.
-          DEPENDENCY_TAG: v24.1.0
+          DEPENDENCY_TAG: v24.4.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           env_file: .env
 
